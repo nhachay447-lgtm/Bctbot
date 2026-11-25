@@ -1,1 +1,262 @@
 
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Robot AI - Full Bàn Tool VIP</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body { width: 100%; height: 100%; overflow: hidden; background-color: #000; font-family: Arial, sans-serif; }
+
+        /* Khung Game */
+        .game-frame { width: 100%; height: 100%; border: none; position: absolute; top: 0; left: 0; z-index: 1; filter: brightness(0.75) contrast(1.1); }
+
+        /* Container Nút Tròn Mini Tool */
+        .mini-tool-container { position: fixed; top: 20px; left: 20px; z-index: 999999; }
+        .mini-tool-btn {
+            width: 65px; height: 65px; border-radius: 50%; border: 2px solid #ffd700;
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.8); cursor: pointer; user-select: none;
+            animation: pulseGlow 1.5s infinite alternate; background: radial-gradient(circle, #ff007f 0%, #7b00ff 100%);
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            color: #fff; font-weight: 900; font-size: 10px; text-shadow: 0 0 4px #000;
+        }
+        @keyframes pulseGlow { 0% { transform: scale(1); box-shadow: 0 0 8px #ffd700; } 100% { transform: scale(1.08); box-shadow: 0 0 18px #ff007f; } }
+
+        /* Menu Chọn Bàn */
+        .game-menu {
+            display: none; position: absolute; top: 75px; left: 0; background: rgba(10, 5, 20, 0.95);
+            border: 2px solid #00ffff; border-radius: 12px; padding: 10px; width: 170px; max-height: 320px;
+            overflow-y: auto; box-shadow: 0 0 15px rgba(0, 255, 255, 0.4); flex-direction: column; gap: 6px; backdrop-filter: blur(5px);
+        }
+        .game-menu.show { display: flex; }
+        .menu-title { color: #ffd700; font-size: 11px; font-weight: bold; text-align: center; text-transform: uppercase; border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 4px; position: sticky; top: 0; background: rgba(10, 5, 20, 0.95); z-index: 2; }
+        .table-btn { background: linear-gradient(135deg, #2b0938, #4a1259); color: #fff; border: 1px solid #ff007f; border-radius: 6px; padding: 6px 8px; font-size: 10px; font-weight: bold; cursor: pointer; text-align: left; transition: all 0.2s; display: flex; justify-content: space-between; align-items: center; }
+        .table-btn.active { background: linear-gradient(135deg, #ff007f, #7b00ff); border-color: #00ffff; box-shadow: 0 0 8px #ff007f; }
+
+        /* Robot Widget Nổi */
+        .robot-widget { position: fixed; top: 20px; right: 20px; width: 200px; z-index: 99999; touch-action: none; user-select: none; display: none; }
+        .robot-widget.landscape { transform: rotate(90deg); }
+        .robot-container { position: relative; width: 100%; line-height: 0; }
+        .robot-img { width: 100%; display: block; pointer-events: none; }
+        .content-overlay { position: absolute; top: 52%; left: 66%; transform: translate(-50%, -50%); width: 105px; height: 70px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; z-index: 10; }
+        
+        .current-table-tag { color: #00ffff; font-size: 9px; font-weight: bold; margin-bottom: 1px; text-shadow: 0 0 2px #000; }
+        .session-result { color: #ffffff; font-size: 10px; font-weight: bold; margin-bottom: 2px; line-height: 1.2; text-shadow: 0 0 3px #000; white-space: nowrap; }
+        .result-text { font-size: 12px; font-weight: 900; text-transform: uppercase; }
+        .confidence { color: #ffd700; font-size: 9px; font-weight: bold; margin-bottom: 2px; line-height: 1.1; text-shadow: 0 0 4px rgba(255, 215, 0, 0.5); white-space: nowrap; }
+        .api-status { font-size: 8px; font-weight: bold; line-height: 1; white-space: nowrap; }
+        .status-online { color: #00ff66; }
+        .status-offline { color: #ff3333; }
+
+        .rotate-btn, .close-btn { position: absolute; top: -8px; background: #ff007f; color: #fff; border: 2px solid #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 20; box-shadow: 0 0 8px rgba(0,0,0,0.6); }
+        .rotate-btn { left: -8px; width: 28px; height: 28px; font-size: 14px; }
+        .close-btn { right: -8px; width: 24px; height: 24px; font-size: 12px; background: #ff3333; }
+    </style>
+</head>
+<body>
+
+    <!-- Link Game -->
+    <iframe class="game-frame" src="https://c16856.co/"></iframe>
+
+    <!-- Nút Tròn Mini Tool & Menu Chọn Bàn -->
+    <div class="mini-tool-container">
+        <div class="mini-tool-btn" id="miniToolBtn">
+            CHỌN<br>BÀN
+        </div>
+        <div class="game-menu" id="gameMenu">
+            <div class="menu-title">Danh Sách Bàn</div>
+            <div id="tableListContainer" style="display:flex; flex-direction:column; gap:5px;"></div>
+        </div>
+    </div>
+
+    <!-- ROBOT AI DỰ ĐOÁN -->
+    <div class="robot-widget" id="robotWidget">
+        <div class="rotate-btn" onclick="rotateRobot()" title="Xoay">🔄</div>
+        <div class="close-btn" onclick="closeRobot()" title="Tắt">✕</div>
+
+        <div class="robot-container">
+            <img src="https://aibcr.me/images/robot_login.gif" class="robot-img" alt="Robot AI">
+            <div class="content-overlay">
+                <div class="current-table-tag" id="currentTableTag">BÀN --</div>
+                <div class="session-result">
+                    <span id="sessionTag">Phiên --</span>: 
+                    <span id="resultTag" class="result-text">---</span>
+                </div>
+                <div class="confidence" id="confidenceTag">Độ Tin Cậy: --%</div>
+                <div class="api-status status-offline" id="apiStatusTag">API: Đang kết nối...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    const API_URL = "https://apibcr-ja2l.onrender.com/api/bcrbytduy";
+    
+    let currentSelectedBan = null; // Bàn đang chọn (Ví dụ: "12", "C10")
+    const miniToolBtn = document.getElementById("miniToolBtn");
+    const gameMenu = document.getElementById("gameMenu");
+    const robotWidget = document.getElementById("robotWidget");
+    const tableListContainer = document.getElementById("tableListContainer");
+
+    // Tạo danh sách Bàn (Vì API trả về bàn số và bàn chữ C, tao tạo mảng list cho mày chọn)
+    const danhSachBan = ["12", "14", "15", "C10", "C19", "C21", "C03", "C09", "C14", "C17", "C20", "8", "10", "C08", "9", "C01", "C22", "C06", "C04", "11", "C07", "C18", "C05", "C11", "C12", "6", "13", "C02", "C13", "7"];
+    
+    danhSachBan.forEach(banKey => {
+        const btn = document.createElement("button");
+        btn.className = "table-btn";
+        btn.id = "btn-" + banKey;
+        btn.innerHTML = `<span>BÀN ${banKey}</span>`;
+        btn.onclick = () => selectBan(banKey);
+        tableListContainer.appendChild(btn);
+    });
+
+    miniToolBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        gameMenu.classList.toggle("show");
+    });
+
+    document.addEventListener("click", (e) => {
+        if (!miniToolBtn.contains(e.target) && !gameMenu.contains(e.target)) {
+            gameMenu.classList.remove("show");
+        }
+    });
+
+    function selectBan(banKey) {
+        currentSelectedBan = banKey;
+        
+        document.querySelectorAll(".table-btn").forEach(btn => btn.classList.remove("active"));
+        const activeBtn = document.getElementById("btn-" + banKey);
+        if (activeBtn) activeBtn.classList.add("active");
+
+        robotWidget.style.display = "block";
+        gameMenu.classList.remove("show");
+
+        fetchDataAndAnalyze();
+    }
+
+    function closeRobot() {
+        robotWidget.style.display = "none";
+        currentSelectedBan = null;
+        document.querySelectorAll(".table-btn").forEach(btn => btn.classList.remove("active"));
+    }
+
+    function rotateRobot() {
+        robotWidget.classList.toggle("landscape");
+    }
+
+    // Gọi API
+    async function fetchDataAndAnalyze() {
+        if (!currentSelectedBan) return;
+
+        const currentTableTag = document.getElementById("currentTableTag");
+        const sessionTag = document.getElementById("sessionTag");
+        const resultTag = document.getElementById("resultTag");
+        const confidenceTag = document.getElementById("confidenceTag");
+        const apiStatusTag = document.getElementById("apiStatusTag");
+
+        currentTableTag.innerText = "BÀN " + currentSelectedBan;
+
+        try {
+            const res = await fetch(API_URL + "?t=" + Date.now());
+            const data = await res.json();
+            
+            if (data && data.predictions) {
+                // Tìm bàn mày đã chọn trong danh sách API trả về
+                const banData = data.predictions.find(p => p.table === currentSelectedBan);
+
+                if (banData) {
+                    // Cập nhật Phiên
+                    sessionTag.innerText = "Phiên " + banData.phien;
+
+                    // Cập nhật Dự đoán
+                    let rawDuDoan = banData.dudoan;
+                    if (rawDuDoan === "BANKER") {
+                        resultTag.innerText = "CÁI (B)";
+                        resultTag.style.color = "#ff3333"; // Đỏ
+                    } else if (rawDuDoan === "PLAYER") {
+                        resultTag.innerText = "CON (P)";
+                        resultTag.style.color = "#00ffff"; // Xanh
+                    } else {
+                        resultTag.innerText = rawDuDoan;
+                        resultTag.style.color = "#ffd700";
+                    }
+
+                    // Cập nhật độ tin cậy
+                    confidenceTag.innerText = "Độ Tin Cậy: " + (banData.dotincay || "--%");
+
+                    apiStatusTag.innerText = "API: Hoạt động";
+                    apiStatusTag.className = "api-status status-online";
+                } else {
+                    // Bàn này không có trong danh sách API trả về
+                    sessionTag.innerText = "Phiên --";
+                    resultTag.innerText = "CHỜ DATA";
+                    resultTag.style.color = "#aaa";
+                    confidenceTag.innerText = "Độ Tin Cậy: --%";
+                    apiStatusTag.innerText = "API: Không có bàn này";
+                    apiStatusTag.className = "api-status status-offline";
+                }
+            } else {
+                throw new Error("Dữ liệu API không hợp lệ");
+            }
+        } catch (err) {
+            console.error("Lỗi đọc API:", err);
+            apiStatusTag.innerText = "API: Đang kết nối lại...";
+            apiStatusTag.className = "api-status status-offline";
+        }
+    }
+
+    // Tự động cập nhật mỗi 3 giây
+    setInterval(() => {
+        if (currentSelectedBan) {
+            fetchDataAndAnalyze();
+        }
+    }, 3000);
+
+    // Kéo thả Robot
+    function makeDraggable(element) {
+        let isDragging = false, startX, startY, initialX, initialY;
+
+        element.addEventListener("mousedown", startDrag);
+        element.addEventListener("touchstart", startDrag, {passive: true});
+
+        function startDrag(e) {
+            if (e.target.classList.contains('rotate-btn') || e.target.classList.contains('close-btn')) return;
+            isDragging = true;
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            startX = clientX;
+            startY = clientY;
+            initialX = element.offsetLeft;
+            initialY = element.offsetTop;
+
+            window.addEventListener("mousemove", moveDrag);
+            window.addEventListener("touchmove", moveDrag, {passive: true});
+            window.addEventListener("mouseup", stopDrag);
+            window.addEventListener("touchend", stopDrag);
+        }
+
+        function moveDrag(e) {
+            if (!isDragging) return;
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            const dx = clientX - startX;
+            const dy = clientY - startY;
+            element.style.left = (initialX + dx) + "px";
+            element.style.top = (initialY + dy) + "px";
+            element.style.right = "auto";
+        }
+
+        function stopDrag() {
+            isDragging = false;
+            window.removeEventListener("mousemove", moveDrag);
+            window.removeEventListener("touchmove", moveDrag);
+            window.removeEventListener("mouseup", stopDrag);
+            window.removeEventListener("touchend", stopDrag);
+        }
+    }
+
+    makeDraggable(robotWidget);
+    </script>
+
+</body>
+</html>
